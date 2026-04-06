@@ -1,49 +1,72 @@
 import { useEffect, useState } from "react";
+import { fetchJson } from "../lib/fetchJson";
 
 type NewsItem = {
   title: string;
   link: string;
   pubDate: string;
 };
+type RssResponse = {
+  items?: NewsItem[];
+};
 
 function TechNews() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const rssUrl = encodeURIComponent("https://www.nrk.no/toppsaker.rss");
-    const api = `https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`;
+    const norwegianTechFeeds = [
+      "https://www.digi.no/rss",
+      "https://www.tu.no/feeds/general.xml",
+    ];
 
-    fetch(api)
-      .then((res) => res.json())
-      .then((data) => {
-        console.log(data);
+    const loadNews = async () => {
+      for (const feed of norwegianTechFeeds) {
+        try {
+          const rssUrl = encodeURIComponent(feed);
+          const api = `https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`;
+          const data = await fetchJson<RssResponse>(api);
 
-        if (data.items) {
-          setNews(data.items.slice(0, 5));
+          if (Array.isArray(data.items) && data.items.length > 0) {
+            setNews(data.items.slice(0, 5));
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Try next feed source
         }
+      }
 
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      setError("No tech headlines available.");
+      setLoading(false);
+    };
+
+    loadNews();
   }, []);
 
   return (
-    <div style={{ border: "1px solid #ddd", padding: "20px" }}>
-      <h2>Tech News</h2>
+    <div className="panel h-auto">
+      <h2 className="panel-title">Tech News</h2>
 
-      {loading && <p>Loading...</p>}
+      {loading && <p className="panel-muted mt-4">Loading headlines...</p>}
 
-      {!loading && news.length === 0 && <p>No news available.</p>}
+      {!loading && news.length === 0 && <p className="panel-muted mt-4">{error}</p>}
 
-      <ul style={{ paddingLeft: "20px" }}>
+      <ul className="mt-4 space-y-3">
         {news.map((item, index) => (
-          <li key={index} style={{ marginBottom: "10px" }}>
-            <a href={item.link} target="_blank" rel="noreferrer">
+          <li key={index} className="panel-sub">
+            <a
+              href={item.link}
+              target="_blank"
+              rel="noreferrer"
+              className="accent-link text-sm font-medium"
+            >
               {item.title}
             </a>
-            <br />
-            <small>{new Date(item.pubDate).toLocaleDateString()}</small>
+            <p className="mt-1 text-xs text-muted">
+              {new Date(item.pubDate).toLocaleDateString()}
+            </p>
           </li>
         ))}
       </ul>
